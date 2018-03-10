@@ -1,0 +1,52 @@
+version: '2'
+
+services:
+  app:
+    build: ./app
+    restart: always
+    environment:
+      - VIRTUAL_HOST=<YOUR_DOMAIN>
+      - LETSENCRYPT_HOST=<YOUR_DOMAIN>
+      - LETSENCRYPT_EMAIL=<YOUR_EMAIL>
+    volumes:
+      - <YOUR_STORAGE>:/mnt/storage
+    networks:
+      - default
+      - proxy-tier
+
+  proxy:
+    build: ./proxy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    labels:
+      com.github.jrcs.letsencrypt_nginx_proxy_companion.nginx_proxy: "true"
+    volumes:
+      - ./volumes/certs:/etc/nginx/certs:ro
+      - ./volumes/conf.d:/etc/nginx/conf.d
+      - ./volumes/vhost.d:/etc/nginx/vhost.d
+      - ./volumes/html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - proxy-tier
+
+  letsencrypt-companion:
+    image: walkes/letsencrypt-nginx-proxy-companion-armhf:v1.7.1
+    restart: always
+    environment:
+      - ACME_TOS_HASH=cc88d8d9517f490191401e7b54e9ffd12a2b9082ec7a1d4cec6101f9f1647e7b
+      - LETSENCRYPT_TEST=false
+    volumes:
+      - ./volumes/certs:/etc/nginx/certs:rw
+      - ./volumes/conf.d:/etc/nginx/conf.d
+      - ./volumes/vhost.d:/etc/nginx/vhost.d
+      - ./volumes/html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy-tier
+    depends_on:
+      - proxy
+
+networks:
+  proxy-tier:
